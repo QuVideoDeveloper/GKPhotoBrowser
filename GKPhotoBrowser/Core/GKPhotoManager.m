@@ -21,7 +21,7 @@
     return self.videoUrl || self.videoAsset;
 }
 
-- (void)getImage:(void (^)(NSData * _Nullable, UIImage * _Nullable))completion {
+- (void)getImageWithOrigin:(BOOL)origin completion:(void (^)(NSData * _Nullable, UIImage * _Nullable))completion progress:(void (^)(double))progress {
     if (!self.imageAsset) {
         completion(nil, nil);
         return;
@@ -46,13 +46,13 @@
                 });
             }];
         }else {
-            self.imageRequestID = [GKPhotoManager loadImageWithAsset:phAsset photoWidth:GKScreenW * 2 completion:^(UIImage * _Nullable image) {
+            self.imageRequestID = [GKPhotoManager loadImageWithAsset:phAsset origin: origin photoWidth:GKScreenW * 2 completion:^(UIImage * _Nullable image) {
                 __strong __typeof(weakSelf) self = weakSelf;
                 dispatch_async(dispatch_get_main_queue(), ^{
                     !completion ?: completion(nil, image);
                     self.imageRequestID = 0;
                 });
-            }];
+            } progress:progress];
         }
     }
 }
@@ -101,7 +101,7 @@
     return requestID;
 }
 
-+ (PHImageRequestID)loadImageWithAsset:(PHAsset *)asset photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage * _Nullable))completion {
++ (PHImageRequestID)loadImageWithAsset:(PHAsset *)asset origin:(BOOL)origin photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage * _Nullable))completion progress:(void (^)(double))progress {
     CGSize imageSize;
     CGFloat scale = 2.0;
     if (UIScreen.mainScreen.bounds.size.width > 700) {
@@ -109,6 +109,9 @@
     }
     CGFloat aspectRatio = asset.pixelWidth / (CGFloat)asset.pixelHeight;
     CGFloat pixelWidth = photoWidth * scale;
+    if (origin) {
+        pixelWidth = asset.pixelWidth;
+    }
     // 超宽图片
     if (aspectRatio > 1.8) {
         pixelWidth = pixelWidth * aspectRatio;
@@ -122,6 +125,10 @@
     
     PHImageRequestOptions *option = [[PHImageRequestOptions alloc] init];
     option.resizeMode = PHImageRequestOptionsResizeModeFast;
+    if (origin) {
+        option.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+    }
+    
     PHImageRequestID requestID = [[PHImageManager defaultManager] requestImageForAsset:asset targetSize:imageSize contentMode:PHImageContentModeAspectFill options:option resultHandler:^(UIImage * _Nullable result, NSDictionary * _Nullable info) {
         BOOL cancelled = [[info objectForKey:PHImageCancelledKey] boolValue];
         if (!cancelled && result) {
@@ -132,6 +139,16 @@
             PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
             options.networkAccessAllowed = YES;
             options.resizeMode = PHImageRequestOptionsResizeModeFast;
+            if (origin) {
+                option.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+            }
+            options.progressHandler = ^(double progressValue, NSError * _Nullable error, BOOL * _Nonnull stop, NSDictionary * _Nullable info) {
+                NSLog(@"iCloud下载进度 %lf", progressValue);
+                if (progress) {
+                    progress(progressValue);
+                }
+            };
+
             [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
                 UIImage *resultImage = [UIImage imageWithData:imageData];
                 !completion ? : completion(resultImage);

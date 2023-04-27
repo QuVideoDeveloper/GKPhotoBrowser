@@ -252,7 +252,7 @@
         if (photo.image) {
             [self setupImageView:photo.image];
             return;
-        }else if (photo.imageAsset) {
+        } else if (photo.imageAsset) {
             [self addSubview:self.loadingView];
             if (!photo.failed) {
                 [self.loadingView hideFailure];
@@ -268,7 +268,7 @@
             }
             
             __weak __typeof(self) weakSelf = self;
-            [photo getImage:^(NSData * _Nonnull data, UIImage * _Nonnull image) {
+            [photo getImageWithOrigin:isOrigin completion:^(NSData * _Nullable data, UIImage * _Nullable image) {
                 __strong __typeof(weakSelf) self = weakSelf;
                 UIImage *newImage = nil;
                 if (data) {
@@ -281,7 +281,29 @@
                 }else {
                     newImage = image;
                 }
+                
+                // 图片加载完成，回调进度
+                if (isOrigin && self.originLoadStyle == GKLoadingStyleCustom) {
+                    !self.loadProgressBlock ? : self.loadProgressBlock(self, 1.0f, YES);
+                }else if (!isOrigin && self.loadStyle == GKLoadingStyleCustom) {
+                    !self.loadProgressBlock ? : self.loadProgressBlock(self, 1.0f, NO);
+                }
+                
+                
                 [self setupImageView:image];
+            } progress:^(double progress) {
+                __strong __typeof(weakSelf) self = weakSelf;
+                
+                // 图片加载中，回调进度
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (isOrigin && self.originLoadStyle == GKLoadingStyleCustom) {
+                        !self.loadProgressBlock ? : self.loadProgressBlock(self, progress, YES);
+                    }else if (!isOrigin && self.loadStyle == GKLoadingStyleCustom) {
+                        !self.loadProgressBlock ? : self.loadProgressBlock(self, progress, NO);
+                    }else if (self.loadStyle == GKLoadingStyleDeterminate || self.originLoadStyle == GKLoadingStyleDeterminate) {
+                        self.loadingView.progress = progress;
+                    }
+                });
             }];
             return;
         }
