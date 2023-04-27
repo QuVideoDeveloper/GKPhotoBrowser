@@ -21,7 +21,7 @@
     return self.videoUrl || self.videoAsset;
 }
 
-- (void)getImageWithOrigin:(BOOL)origin completion:(void (^)(NSData * _Nullable, UIImage * _Nullable))completion progress:(void (^)(double))progress {
+- (void)getImageWithOrigin:(BOOL)origin completion:(void (^)(NSData * _Nullable, UIImage * _Nullable))completion progress:(void (^)(double, NSString *))progress {
     if (!self.imageAsset) {
         completion(nil, nil);
         return;
@@ -52,7 +52,10 @@
                     !completion ?: completion(nil, image);
                     self.imageRequestID = 0;
                 });
-            } progress:progress];
+            } progress:^(double pro, NSString * _Nonnull ident) {
+                NSLog(@"<progress> GKPhoto photo: %p, progress: %lf, identifier: %@", self, pro, ident);
+                progress(pro, ident);
+            }];
         }
     }
 }
@@ -101,7 +104,7 @@
     return requestID;
 }
 
-+ (PHImageRequestID)loadImageWithAsset:(PHAsset *)asset origin:(BOOL)origin photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage * _Nullable))completion progress:(void (^)(double))progress {
++ (PHImageRequestID)loadImageWithAsset:(PHAsset *)asset origin:(BOOL)origin photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage * _Nullable))completion progress:(void (^)(double, NSString *))progress {
     CGSize imageSize;
     CGFloat scale = 2.0;
     if (UIScreen.mainScreen.bounds.size.width > 700) {
@@ -124,35 +127,25 @@
     imageSize = CGSizeMake(pixelWidth, pixelHeight);
     
     PHImageRequestOptions *option = [[PHImageRequestOptions alloc] init];
+    option.networkAccessAllowed = YES;
     option.resizeMode = PHImageRequestOptionsResizeModeFast;
     if (origin) {
         option.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
     }
     
+    NSString * identifier = asset.localIdentifier;
+    option.progressHandler = ^(double progressValue, NSError * _Nullable error, BOOL * _Nonnull stop, NSDictionary * _Nullable info) {
+        NSLog(@"<progress> download iCloud下载进度 %lf, identifier: %@", progressValue, identifier);
+        if (progress) {
+            progress(progressValue, identifier);
+        }
+    };
+    
+    // 直接使用原图
     PHImageRequestID requestID = [[PHImageManager defaultManager] requestImageForAsset:asset targetSize:imageSize contentMode:PHImageContentModeAspectFill options:option resultHandler:^(UIImage * _Nullable result, NSDictionary * _Nullable info) {
         BOOL cancelled = [[info objectForKey:PHImageCancelledKey] boolValue];
         if (!cancelled && result) {
             !completion ? : completion(result);
-        }
-        // Download image from iCloud / 从iCloud下载图片
-        if ([info objectForKey:PHImageResultIsInCloudKey] && !result) {
-            PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
-            options.networkAccessAllowed = YES;
-            options.resizeMode = PHImageRequestOptionsResizeModeFast;
-            if (origin) {
-                option.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
-            }
-            options.progressHandler = ^(double progressValue, NSError * _Nullable error, BOOL * _Nonnull stop, NSDictionary * _Nullable info) {
-                NSLog(@"iCloud下载进度 %lf", progressValue);
-                if (progress) {
-                    progress(progressValue);
-                }
-            };
-
-            [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
-                UIImage *resultImage = [UIImage imageWithData:imageData];
-                !completion ? : completion(resultImage);
-            }];
         }
     }];
     return requestID;

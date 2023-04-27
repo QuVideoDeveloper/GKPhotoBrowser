@@ -268,7 +268,7 @@
             }
             
             __weak __typeof(self) weakSelf = self;
-            [photo getImageWithOrigin:isOrigin completion:^(NSData * _Nullable data, UIImage * _Nullable image) {
+            [photo getImageWithOrigin:YES completion:^(NSData * _Nullable data, UIImage * _Nullable image) {
                 __strong __typeof(weakSelf) self = weakSelf;
                 UIImage *newImage = nil;
                 if (data) {
@@ -291,19 +291,21 @@
                 
                 
                 [self setupImageView:image];
-            } progress:^(double progress) {
+            } progress:^(double progress, NSString * ident) {
                 __strong __typeof(weakSelf) self = weakSelf;
+                if ([ident isEqualToString:self.photo.imageAsset.localIdentifier]) {
+                    // 图片加载中，回调进度
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if (isOrigin && self.originLoadStyle == GKLoadingStyleCustom) {
+                            !self.loadProgressBlock ? : self.loadProgressBlock(self, progress, YES);
+                        }else if (!isOrigin && self.loadStyle == GKLoadingStyleCustom) {
+                            !self.loadProgressBlock ? : self.loadProgressBlock(self, progress, NO);
+                        }else if (self.loadStyle == GKLoadingStyleDeterminate || self.originLoadStyle == GKLoadingStyleDeterminate) {
+                            self.loadingView.progress = progress;
+                        }
+                    });
+                }
                 
-                // 图片加载中，回调进度
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    if (isOrigin && self.originLoadStyle == GKLoadingStyleCustom) {
-                        !self.loadProgressBlock ? : self.loadProgressBlock(self, progress, YES);
-                    }else if (!isOrigin && self.loadStyle == GKLoadingStyleCustom) {
-                        !self.loadProgressBlock ? : self.loadProgressBlock(self, progress, NO);
-                    }else if (self.loadStyle == GKLoadingStyleDeterminate || self.originLoadStyle == GKLoadingStyleDeterminate) {
-                        self.loadingView.progress = progress;
-                    }
-                });
             }];
             return;
         }

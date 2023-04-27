@@ -65,7 +65,7 @@ NS_ASSUME_NONNULL_BEGIN
 /** 视频是否准备过 */
 @property (nonatomic, assign) BOOL               isVideoPrepared;
 
-- (void)getImageWithOrigin:(BOOL)origin completion:(void (^)(NSData * _Nullable, UIImage * _Nullable))completion progress:(void (^)(double))progress;
+- (void)getImageWithOrigin:(BOOL)origin completion:(void (^)(NSData * _Nullable, UIImage * _Nullable))completion progress:(void (^)(double, NSString *))progress;
 
 - (void)getVideo:(nullable void(^)(NSURL *_Nullable url))completion;
 
@@ -82,7 +82,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// @param asset PHAsset对象
 /// @param photoWidth 宽度
 /// @param completion 完成回调
-+ (PHImageRequestID)loadImageWithAsset:(PHAsset *)asset origin:(BOOL)origin photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage * _Nullable))completion progress:(void (^)(double))progress;
++ (PHImageRequestID)loadImageWithAsset:(PHAsset *)asset origin:(BOOL)origin photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage * _Nullable))completion progress:(void (^)(double, NSString *))progress;
 
 /// 加载相册视频资源
 /// @param asset PHAsset对象
