@@ -15,10 +15,10 @@ NS_ASSUME_NONNULL_BEGIN
 @interface GKPhoto : NSObject
 
 /** 图片地址 */
-@property (nonatomic, strong) NSURL              *url;
+@property (nonatomic, strong, nullable) NSURL              *url;
 
 /** 原图地址 */
-@property (nonatomic, strong) NSURL              *originUrl;
+@property (nonatomic, strong, nullable) NSURL              *originUrl;
 
 /** 来源imageView */
 @property (nonatomic, strong) UIImageView        *sourceImageView;
